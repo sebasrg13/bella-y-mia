@@ -1,0 +1,23 @@
+// Bella y Mia — app web: guarda el juego en el aparato para jugar sin internet y lo actualiza cuando sale una versión nueva.
+const V=81, TAG='41b542e71b', CACHE='bm-v'+V+'-'+TAG, ALBUM='bm-album';
+const FILES=["index.html", "manifest.webmanifest", "mimi-miau.mp3", "mundo-divertido.mp3", "robot33.webp", "cosm/abejita.webp", "cosm/alas.webp", "cosm/aureola.webp", "cosm/auris.webp", "cosm/bombera.webp", "cosm/bruja.webp", "cosm/capa.webp", "cosm/casco.webp", "cosm/chef.webp", "cosm/conejo.webp", "cosm/corona.webp", "cosm/flor.webp", "cosm/genia.webp", "cosm/invierno.webp", "cosm/lentes.webp", "cosm/lupa.webp", "cosm/mariposa.webp", "cosm/mono.webp", "cosm/patito.webp", "cosm/pirata.webp", "cosm/sombrero.webp", "cosm/tiara.webp", "cosm/unicornio.webp", "cosm/vincha.webp", "cosm2/abejita_b_front.webp", "cosm2/abejita_m_front.webp", "cosm2/alas_b_body_back.webp", "cosm2/alas_b_front.webp", "cosm2/antiparras_b_front.webp", "cosm2/antiparras_m_front.webp", "cosm2/aureola_b_front.webp", "cosm2/aureola_m_front.webp", "cosm2/auris_b_front.webp", "cosm2/auris_m_front.webp", "cosm2/bombera_b_front.webp", "cosm2/bombera_m_front.webp", "cosm2/bruja_b_body_back.webp", "cosm2/bruja_b_front.webp", "cosm2/bruja_m_front.webp", "cosm2/capa_b_body_back.webp", "cosm2/capa_b_face.webp", "cosm2/capa_m_body_back.webp", "cosm2/capa_m_face.webp", "cosm2/casco_b_front.webp", "cosm2/chef_b_front.webp", "cosm2/chef_m_front.webp", "cosm2/conejo_b_front.webp", "cosm2/conejo_m_front.webp", "cosm2/corona_b_front.webp", "cosm2/corona_m_front.webp", "cosm2/flor_b_front.webp", "cosm2/flor_m_front.webp", "cosm2/genia_b_front.webp", "cosm2/genia_m_front.webp", "cosm2/invierno_b_front.webp", "cosm2/invierno_m_front.webp", "cosm2/lentes_b_face.webp", "cosm2/lentes_m_face.webp", "cosm2/lupa_b_front.webp", "cosm2/lupa_m_front.webp", "cosm2/mariposa_b_body_back.webp", "cosm2/mono_b_front.webp", "cosm2/mono_m_front.webp", "cosm2/patito_b_body_front.webp", "cosm2/pirata_b_front.webp", "cosm2/pirata_m_front.webp", "cosm2/sombrero_b_front.webp", "cosm2/sombrero_m_front.webp", "cosm2/tiara_b_front.webp", "cosm2/tiara_m_front.webp", "cosm2/unicornio_b_front.webp", "cosm2/unicornio_m_front.webp", "cosm2/vincha_b_front.webp", "cosm2/vincha_m_front.webp", "fonts/LICENCIA-OFL.txt", "fonts/baloo2.ttf", "fonts/cormorant.ttf", "fonts/dancing.ttf", "fonts/fredoka.ttf", "fonts/greatvibes.ttf", "fonts/lilita.ttf", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png"];
+const abs=p=>new URL(p,self.registration.scope).href;
+self.addEventListener('install',e=>{ e.waitUntil((async()=>{ const c=await caches.open(CACHE);
+  for(const f of FILES){ const r=await fetch(abs(f)+'?v='+V+TAG,{cache:'no-store'}); if(!r.ok) throw new Error('no pude bajar '+f); await c.put(abs(f),r); }
+})()); });
+self.addEventListener('message',e=>{ if(e.data==='skip') self.skipWaiting(); });
+self.addEventListener('activate',e=>{ e.waitUntil((async()=>{ for(const k of await caches.keys()) if(k.startsWith('bm-v') && k!==CACHE) await caches.delete(k); await self.clients.claim(); })()); });
+async function ranged(req,res){ const range=req.headers.get('range'); if(!range||res.status!==200) return res;
+  const m=/bytes=(\d*)-(\d*)/.exec(range); if(!m) return res; const buf=await res.arrayBuffer(), size=buf.byteLength;
+  let from=m[1]===''?Math.max(0,size-parseInt(m[2],10)):parseInt(m[1],10), to=(m[1]!==''&&m[2]!=='')?Math.min(size-1,parseInt(m[2],10)):size-1;
+  if(!(from>=0)||from>=size||from>to) return new Response('',{status:416,headers:{'Content-Range':'bytes */'+size}});
+  return new Response(buf.slice(from,to+1),{status:206,statusText:'Partial Content',headers:{'Content-Type':res.headers.get('Content-Type')||'application/octet-stream','Content-Range':'bytes '+from+'-'+to+'/'+size,'Content-Length':String(to-from+1),'Accept-Ranges':'bytes'}}); }
+self.addEventListener('fetch',e=>{ const req=e.request; if(req.method!=='GET') return; const u=new URL(req.url), scope=new URL(self.registration.scope);
+  if(u.origin!==scope.origin || !u.pathname.startsWith(scope.pathname)) return;
+  let path=u.pathname.slice(scope.pathname.length); if(path==='') path='index.html';
+  if(path==='version.txt'||path==='sw.js') return;   // siempre de internet: así se entera de las versiones nuevas
+  e.respondWith((async()=>{ let r=null;
+    if(path.startsWith('album/')) r=await (await caches.open(ALBUM)).match(abs(path));
+    if(!r) r=await (await caches.open(CACHE)).match(abs(path));
+    if(r) return ranged(req,r);
+    try{ return await fetch(req); }catch(err){ return new Response('',{status:504,statusText:'Sin internet'}); } })()); });
